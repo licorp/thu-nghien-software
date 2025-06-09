@@ -16,6 +16,10 @@ Tool validation Excel cho dự án pipe/equipment data với các quy tắc:
      * CP-INTERNAL → GAL
      * CP-EXTERNAL, CW-DISTRIBUTION, CW-ARRAY → BLACK
 
+3. CP-INTERNAL Array Number Validation (mới):
+   - Áp dụng tất cả worksheet
+   - Quy tắc: Khi EE_System Type = "CP-INTERNAL" thì EE_Array Number phải trùng với EE_Cross Passage
+
 Tác giả: GitHub Copilot
 Ngày tạo: 2025-06-09
 """
@@ -37,10 +41,16 @@ class ExcelValidator:
             'Pipe Schedule', 
             'Pipe Fitting Schedule', 
             'Pipe Accessory Schedule', 
-            'Sprinkler Schedule'
-        ]
+            'Sprinkler Schedule'        ]
         
         self.pipe_treatment_worksheets = [
+            'Pipe Schedule', 
+            'Pipe Fitting Schedule', 
+            'Pipe Accessory Schedule'
+        ]
+        
+        # CP-INTERNAL Array Number worksheets (Rule 3)
+        self.cp_internal_worksheets = [
             'Pipe Schedule', 
             'Pipe Fitting Schedule', 
             'Pipe Accessory Schedule'
@@ -74,6 +84,9 @@ class ExcelValidator:
             print("2. Pipe Treatment Validation:")
             print(f"   - Worksheets: {', '.join(self.pipe_treatment_worksheets)}")
             print("   - Quy tắc: CP-INTERNAL→GAL, CP-EXTERNAL/CW-DISTRIBUTION/CW-ARRAY→BLACK")
+            print("3. CP-INTERNAL Array Number Validation (MỚI):")
+            print("   - Worksheets: Pipe Schedule, Pipe Fitting Schedule, Pipe Accessory Schedule")
+            print("   - Quy tắc: Khi EE_System Type = 'CP-INTERNAL' thì EE_Array Number phải trùng EE_Cross Passage")
             print()
             
             # Xử lý từng worksheet
@@ -100,15 +113,16 @@ class ExcelValidator:
         # Đọc worksheet
         df = pd.read_excel(excel_file_path, sheet_name=sheet_name)
         print(f"Số dòng: {len(df)}, Số cột: {len(df.columns)}")
-        
-        # Kiểm tra worksheet nào cần validation gì
+          # Kiểm tra worksheet nào cần validation gì
         apply_array_validation = sheet_name in self.array_number_worksheets
         apply_pipe_treatment_validation = sheet_name in self.pipe_treatment_worksheets
+        apply_cp_internal_validation = sheet_name in self.cp_internal_worksheets
         
         print(f"Array Number validation: {'✅ ÁP DỤNG' if apply_array_validation else '❌ KHÔNG ÁP DỤNG'}")
         print(f"Pipe Treatment validation: {'✅ ÁP DỤNG' if apply_pipe_treatment_validation else '❌ KHÔNG ÁP DỤNG'}")
+        print(f"CP-INTERNAL Array validation: {'✅ ÁP DỤNG' if apply_cp_internal_validation else '❌ KHÔNG ÁP DỤNG'}")
         
-        if not apply_array_validation and not apply_pipe_treatment_validation:
+        if not apply_array_validation and not apply_pipe_treatment_validation and not apply_cp_internal_validation:
             print("⏭️ Bỏ qua worksheet (không có quy tắc nào áp dụng)")
             print()
             return
@@ -119,13 +133,12 @@ class ExcelValidator:
         col_c_name = df.columns[2] if len(df.columns) > 2 else None  # EE_System Type
         col_d_name = df.columns[3] if len(df.columns) > 3 else None  # EE_Array Number
         col_t_name = df.columns[19] if len(df.columns) > 19 else None  # EE_Pipe Treatment
-        
-        # Áp dụng validation
+          # Áp dụng validation
         df['Validation_Check'] = df.apply(
             lambda row: self._validate_row(
                 row, 
                 col_a_name, col_b_name, col_c_name, col_d_name, col_t_name,
-                apply_array_validation, apply_pipe_treatment_validation
+                apply_array_validation, apply_pipe_treatment_validation, apply_cp_internal_validation
             ), 
             axis=1
         )
@@ -142,24 +155,30 @@ class ExcelValidator:
         self.total_rows += sheet_total
         self.total_pass += sheet_pass  
         self.total_fail += sheet_fail
-        
-        # Lưu kết quả
+          # Lưu kết quả
         self.validation_results[sheet_name] = df
         
         # Hiển thị lỗi mẫu
         self._show_sample_errors(df, sheet_name, col_c_name, col_d_name, col_t_name)
         print()
-    
+
     def _validate_row(self, row, col_a_name, col_b_name, col_c_name, col_d_name, col_t_name, 
-                     apply_array_validation, apply_pipe_treatment_validation):
+                     apply_array_validation, apply_pipe_treatment_validation, apply_cp_internal_validation):
         """
         Validate một dòng dữ liệu với tất cả các quy tắc
+        LOGIC MỚI: Khi CP-INTERNAL thì chỉ áp dụng Rule 3, bỏ qua Rule 1
         """
         errors = []
         
         try:
-            # Rule 1: Array Number validation
-            if apply_array_validation and col_a_name and col_b_name and col_d_name:
+            # Kiểm tra xem có phải CP-INTERNAL không
+            is_cp_internal = False
+            if col_c_name and not pd.isna(row[col_c_name]):
+                system_type = str(row[col_c_name]).strip()
+                is_cp_internal = (system_type == "CP-INTERNAL")
+            
+            # Rule 1: Array Number validation (BỎ QUA nếu CP-INTERNAL)
+            if apply_array_validation and col_a_name and col_b_name and col_d_name and not is_cp_internal:
                 array_result = self._check_array_number(row, col_a_name, col_b_name, col_d_name)
                 if array_result != "PASS" and not array_result.startswith("SKIP"):
                     errors.append(f"Array: {array_result}")
@@ -169,10 +188,16 @@ class ExcelValidator:
                 treatment_result = self._check_pipe_treatment(row, col_c_name, col_t_name)
                 if treatment_result != "PASS" and not treatment_result.startswith("SKIP"):
                     errors.append(f"Treatment: {treatment_result}")
+              
+            # Rule 3: CP-INTERNAL Array Number validation (ƯU TIÊN cao hơn Rule 1)
+            if apply_cp_internal_validation and col_a_name and col_c_name and col_d_name:
+                cp_internal_result = self._check_cp_internal_array(row, col_a_name, col_c_name, col_d_name)
+                if cp_internal_result != "PASS" and not cp_internal_result.startswith("SKIP"):
+                    errors.append(f"CP-Internal: {cp_internal_result}")
             
             # Trả về kết quả
             if errors:
-                return f"FAIL: {'; '.join(errors[:2])}"  # Chỉ hiển thị 2 lỗi đầu
+                return f"FAIL: {'; '.join(errors[:3])}"  # Hiển thị 3 lỗi đầu
             else:
                 return "PASS"
                 
@@ -214,8 +239,7 @@ class ExcelValidator:
             if required_pattern in actual_array:
                 return "PASS"
             else:
-                return f"cần '{required_pattern}', có '{actual_array}'"
-                
+                return f"cần '{required_pattern}', có '{actual_array}'"                
         except Exception as e:
             return f"ERROR: {str(e)}"
     
@@ -243,51 +267,85 @@ class ExcelValidator:
             
             if pipe_treatment_str == expected_treatment:
                 return "PASS"
-            else:                return f"'{system_type_str}' cần '{expected_treatment}', có '{pipe_treatment_str}'"
+            else:
+                return f"'{system_type_str}' cần '{expected_treatment}', có '{pipe_treatment_str}'"
+        except Exception as e:
+            return f"ERROR: {str(e)}"
+    
+    def _check_cp_internal_array(self, row, col_a_name, col_c_name, col_d_name):
+        """
+        Kiểm tra CP-INTERNAL Array Number rule:
+        Khi EE_System Type = "CP-INTERNAL" thì EE_Array Number phải trùng với EE_Cross Passage
+        """
+        try:
+            cross_passage = row[col_a_name]
+            system_type = row[col_c_name]
+            array_number = row[col_d_name]
+            
+            # Kiểm tra dữ liệu có đầy đủ không
+            if pd.isna(system_type):
+                return "SKIP: Thiếu System Type"
+            
+            system_type_str = str(system_type).strip()
+            
+            # Chỉ áp dụng rule cho CP-INTERNAL
+            if system_type_str != "CP-INTERNAL":
+                return "PASS"  # Không áp dụng rule cho system type khác
+            
+            # Kiểm tra dữ liệu cho CP-INTERNAL
+            if pd.isna(cross_passage) or pd.isna(array_number):
+                return "SKIP: Thiếu dữ liệu Cross Passage hoặc Array Number"
+            
+            cross_passage_str = str(cross_passage).strip()
+            array_number_str = str(array_number).strip()
+            
+            # So sánh Cross Passage với Array Number
+            if cross_passage_str == array_number_str:
+                return "PASS"
+            else:
+                                return f"Array Number phải trùng Cross Passage: cần '{cross_passage_str}', có '{array_number_str}'"
                 
         except Exception as e:
             return f"ERROR: {str(e)}"
     
     def _show_sample_errors(self, df, sheet_name, col_c_name, col_d_name, col_t_name):
         """
-        Hiển thị lỗi với tùy chọn xem tất cả
+        Hiển thị TẤT CẢ lỗi với màu sắc: ĐỎ cho giá trị SAI, TRẮNG cho giá trị ĐÚNG
         """
         fail_rows = df[df['Validation_Check'] != 'PASS']
         if not fail_rows.empty:
             total_errors = len(fail_rows)
             
-            # Nếu ít lỗi (<= 20), hiển thị tất cả
-            if total_errors <= 20:
-                print(f"📋 TẤT CẢ {total_errors} LỖI:")
-                for idx, row in fail_rows.iterrows():
-                    col_c = row[col_c_name] if col_c_name else 'N/A'
-                    col_d = row[col_d_name] if col_d_name else 'N/A' 
-                    col_t = row[col_t_name] if col_t_name else 'N/A'
-                    check_result = row['Validation_Check']
-                    print(f"  Dòng {idx+2:3d}: C={col_c} | D={col_d} | T={col_t}")
-                    print(f"           {check_result}")
-            else:
-                # Nếu nhiều lỗi, hiển thị 15 đầu + 5 cuối
-                print(f"📋 Tổng cộng {total_errors} lỗi - Hiển thị 15 đầu + 5 cuối:")
-                print(f"\n🔺 15 LỖI ĐẦU TIÊN:")
-                for idx, row in fail_rows.head(15).iterrows():
-                    col_c = row[col_c_name] if col_c_name else 'N/A'
-                    col_d = row[col_d_name] if col_d_name else 'N/A' 
-                    col_t = row[col_t_name] if col_t_name else 'N/A'
-                    check_result = row['Validation_Check']
-                    print(f"  Dòng {idx+2:3d}: C={col_c} | D={col_d} | T={col_t}")
-                    print(f"           {check_result}")
+            # Hiển thị TẤT CẢ lỗi với màu sắc
+            print(f"📋 TẤT CẢ {total_errors} LỖI (MÀU ĐỎ=SAI, TRẮNG=ĐÚNG):")
+            for idx, row in fail_rows.iterrows():
+                col_c = row[col_c_name] if col_c_name else 'N/A'
+                col_d = row[col_d_name] if col_d_name else 'N/A' 
+                col_t = row[col_t_name] if col_t_name else 'N/A'
+                check_result = row['Validation_Check']
                 
-                if total_errors > 15:
-                    print(f"\n⋮⋮⋮ ... Bỏ qua {total_errors - 20} lỗi ở giữa ... ⋮⋮⋮")
-                    print(f"\n🔻 5 LỖI CUỐI CÙNG:")
-                    for idx, row in fail_rows.tail(5).iterrows():
-                        col_c = row[col_c_name] if col_c_name else 'N/A'
-                        col_d = row[col_d_name] if col_d_name else 'N/A' 
-                        col_t = row[col_t_name] if col_t_name else 'N/A'
-                        check_result = row['Validation_Check']
-                        print(f"  Dòng {idx+2:3d}: C={col_c} | D={col_d} | T={col_t}")
+                print(f"  Dòng {idx+2:3d}: C={col_c} | D={col_d} | T={col_t}")
+                
+                # Hiển thị lỗi với màu sắc
+                if "cần '" in check_result and "', có '" in check_result:
+                    # Tách expected và actual values để tô màu
+                    parts = check_result.split("cần '")
+                    if len(parts) > 1:
+                        prefix = parts[0]
+                        remaining = parts[1]
+                        if "', có '" in remaining:
+                            expected_and_actual = remaining.split("', có '")
+                            expected = expected_and_actual[0]
+                            actual = expected_and_actual[1].rstrip("'")
+                            
+                            # In với màu: TRẮNG cho expected (đúng), ĐỎ cho actual (sai)
+                            print(f"           {prefix}cần '\033[97m{expected}\033[0m', có '\033[91m{actual}\033[0m'")
+                        else:
+                            print(f"           {check_result}")
+                    else:
                         print(f"           {check_result}")
+                else:
+                    print(f"           {check_result}")
     
     def _generate_summary(self):
         """

@@ -7,7 +7,7 @@ def analyze_worksheet_structures():
     """
     Phân tích cấu trúc chi tiết của từng worksheet
     """
-    excel_file = '../Xp03-Fabrication & Listing.xlsx'
+    excel_file = 'Xp02-Fabrication & Listing.xlsx'
     xl_file = pd.ExcelFile(excel_file)
     
     target_worksheets = [
@@ -58,18 +58,7 @@ def analyze_worksheet_structures():
                 print(f"✅ {col:25s} | Mẫu: {sample}")
             else:
                 print(f"❌ {col:25s} | THIẾU")
-        
-        # Kiểm tra các cột cho FAB Pipe, Pap validation
-        new_validation_cols = ['EE_FAB Pipe', 'EE_Pap 1', 'EE_Pap 2', 'Item Description']
-        print(f"\nCÁC CỘT CHO NEW VALIDATION RULES:")
-        for col in new_validation_cols:
-            if col in df.columns:
-                sample = df[col].dropna().head(5).tolist()
-                print(f"✅ {col:25s} | Mẫu: {sample}")
-            else:
-                print(f"❌ {col:25s} | THIẾU")
-        
-        # Phân tích mẫu dữ liệu cho Array Number validation
+          # Phân tích mẫu dữ liệu cho Array Number validation
         if all(col in df.columns for col in array_validation_cols):
             print(f"\n📊 PHÂN TÍCH ARRAY NUMBER VALIDATION (5 dòng đầu):")
             for i in range(min(5, len(df))):
@@ -135,21 +124,7 @@ def analyze_worksheet_structures():
                         print(f"  Expected: NO RULE")
                 print()
         
-        # Phân tích chi tiết dữ liệu Pap 1 để hiểu format
-        if 'EE_Pap 1' in df.columns:
-            print(f"\n📏 PHÂN TÍCH EE_PAP 1 VALIDATION (10 dòng đầu):")
-            pap1_data = df['EE_Pap 1'].dropna().head(10)
-            item_desc_data = df['Item Description'].head(10) if 'Item Description' in df.columns else None
-            
-            for i, pap1_val in enumerate(pap1_data):
-                item_desc = item_desc_data.iloc[i] if item_desc_data is not None and i < len(item_desc_data) else "N/A"
-                print(f"Dòng {i+2}:")
-                print(f"  Item Description: {item_desc}")
-                print(f"  EE_Pap 1: {pap1_val}")
-                
-                # Phân tích pattern
-                pap1_str = str(pap1_val)
-                if 'x' in pap1_str:
-                    print(f"  → Format: Dimension (chứa 'x')")
-                elif any(char.isalpha() for char in pap1_str):
-                    print(f"  → Format: Size + Letter (như 40B, 65LR)")
+        print("\n")
+
+if __name__ == "__main__":
+    analyze_worksheet_structures()
