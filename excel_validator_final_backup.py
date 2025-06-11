@@ -1,18 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-EXCEL VALIDATION TOOL - PRODUCTION VERSION WITH 6 RULES (ENHANCED ERROR REPORTING)
-================================================================================
+EXCEL VALIDATION TOOL - PRODUCTION VERSION WITH 6 RULES
+=======================================================
 
-Tool validation Excel cho dự án pipe/equipment data với 6 quy tắc và báo cáo lỗi chi tiết theo cột:
+Tool validation Excel cho dự án pipe/equipment data với 6 quy tắc:
 1. Array Number Validation
 2. Pipe Treatment Validation  
 3. CP-INTERNAL Array Number Validation
 4. Priority-based Pipe Schedule Mapping Validation
-5. EE_Run Dim & EE_Pap Validation (với báo cáo chi tiết cột N, O)
+5. EE_Run Dim & EE_Pap Validation
 6. Item Description = Family Validation (Pipe Accessory Schedule)
-
-Cập nhật: Báo cáo chi tiết cột K (FAB Pipe), L (End-1), M (End-2), N (EE_Run Dim 1), O (EE_Pap 1)
 
 Tác giả: GitHub Copilot
 Ngày: 2025-06-11
@@ -24,7 +22,7 @@ from pathlib import Path
 from datetime import datetime
 
 class ExcelValidator:
-    """Excel validation với 6 quy tắc hoàn chỉnh và báo cáo lỗi chi tiết"""
+    """Excel validation với 6 quy tắc hoàn chỉnh"""
     
     def __init__(self):
         self.worksheets_config = {
@@ -45,7 +43,7 @@ class ExcelValidator:
         """Validate toàn bộ file Excel với 6 quy tắc"""
         try:
             print("=" * 80)
-            print("🚀 EXCEL VALIDATION TOOL - ENHANCED WITH 6 RULES & DETAILED ERROR REPORTING")
+            print("🚀 EXCEL VALIDATION TOOL - ENHANCED WITH 6 RULES")
             print("=" * 80)
             print(f"📁 File: {excel_file_path}")
             print(f"🕐 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
@@ -163,12 +161,6 @@ class ExcelValidator:
                 result = self._check_item_family_match(row, cols['F'], cols['U'])
                 if result != "PASS" and not result.startswith("SKIP"):
                     errors.append(f"Item-Family: {result}")
-            
-            # FAB Pipe dựa vào EE Columns Validation (nếu có FAB Pipe - cột K)
-            if all(cols[c] for c in ['K', 'N', 'O', 'P', 'Q', 'R', 'S']):
-                result = self._check_fab_pipe_based_ee_validation(row, cols['K'], cols['N'], cols['O'], cols['P'], cols['Q'], cols['R'], cols['S'])
-                if result != "PASS" and not result.startswith("SKIP"):
-                    errors.append(f"FAB Pipe EE Validation: {result}")
             
             return "PASS" if not errors else "; ".join(errors)
             
@@ -312,7 +304,7 @@ class ExcelValidator:
             return f"ERROR: {str(e)}"
     
     def _check_ee_run_pap(self, row, col_f, col_g, col_n, col_o, col_p, col_q, col_r, col_s, col_l, col_m):
-        """Rule 5: EE_Run Dim & EE_Pap Validation với báo cáo chi tiết cột N, O"""
+        """Rule 5: EE_Run Dim & EE_Pap Validation"""
         try:
             item_description = row[col_f] if col_f else None
             size = row[col_g] if col_g else None
@@ -348,29 +340,28 @@ class ExcelValidator:
             # STD 1 PAP RANGE: ống 65 dài 4730 → EE_Run Dim 1: 4685, EE_Pap 1: 40B
             if (size_str in ["65.0", "65"]) and "4730" in item_desc_str:
                 if pd.isna(ee_run_dim_1) or safe_str(ee_run_dim_1) not in ["4685", "4685.0"]:
-                    errors.append(f"Cột N (EE_Run Dim 1): STD 1 PAP RANGE cần '4685', có '{safe_str(ee_run_dim_1)}'")
+                    errors.append(f"STD 1 PAP RANGE cần EE_Run Dim 1 = '4685', có '{safe_str(ee_run_dim_1)}'")
                 if pd.isna(ee_pap_1) or safe_str(ee_pap_1) != "40B":
-                    errors.append(f"Cột O (EE_Pap 1): STD 1 PAP RANGE cần '40B', có '{safe_str(ee_pap_1)}'")
+                    errors.append(f"STD 1 PAP RANGE cần EE_Pap 1 = '40B', có '{safe_str(ee_pap_1)}'")
             
             # STD 2 PAP RANGE: ống 65 dài 5295 → EE_Run Dim 1: 150, EE_Pap 1: 40B, EE_Run Dim 2: 5250, EE_Pap 2: 40B
             elif (size_str in ["65.0", "65"]) and "5295" in item_desc_str:
                 if pd.isna(ee_run_dim_1) or safe_str(ee_run_dim_1) not in ["150", "150.0"]:
-                    errors.append(f"Cột N (EE_Run Dim 1): STD 2 PAP RANGE cần '150', có '{safe_str(ee_run_dim_1)}'")
+                    errors.append(f"STD 2 PAP RANGE cần EE_Run Dim 1 = '150', có '{safe_str(ee_run_dim_1)}'")
                 if pd.isna(ee_pap_1) or safe_str(ee_pap_1) != "40B":
-                    errors.append(f"Cột O (EE_Pap 1): STD 2 PAP RANGE cần '40B', có '{safe_str(ee_pap_1)}'")
+                    errors.append(f"STD 2 PAP RANGE cần EE_Pap 1 = '40B', có '{safe_str(ee_pap_1)}'")
                 if pd.isna(ee_run_dim_2) or safe_str(ee_run_dim_2) not in ["5250", "5250.0"]:
-                    errors.append(f"Cột P (EE_Run Dim 2): STD 2 PAP RANGE cần '5250', có '{safe_str(ee_run_dim_2)}'")
+                    errors.append(f"STD 2 PAP RANGE cần EE_Run Dim 2 = '5250', có '{safe_str(ee_run_dim_2)}'")
                 if pd.isna(ee_pap_2) or safe_str(ee_pap_2) != "40B":
-                    errors.append(f"Cột Q (EE_Pap 2): STD 2 PAP RANGE cần '40B', có '{safe_str(ee_pap_2)}'")
+                    errors.append(f"STD 2 PAP RANGE cần EE_Pap 2 = '40B', có '{safe_str(ee_pap_2)}'")
             
             # STD ARRAY TEE: ống 150 dài 900 → EE_Run Dim 1: 150, EE_Pap 1: 65LR
             elif ((size_str in ["150.0", "150"]) and "900" in item_desc_str) or "150-900" in item_desc_str:
                 if pd.isna(ee_run_dim_1) or safe_str(ee_run_dim_1) not in ["150", "150.0"]:
-                    errors.append(f"Cột N (EE_Run Dim 1): STD ARRAY TEE cần '150', có '{safe_str(ee_run_dim_1)}'")
+                    errors.append(f"STD ARRAY TEE cần EE_Run Dim 1 = '150', có '{safe_str(ee_run_dim_1)}'")
                 if pd.isna(ee_pap_1) or safe_str(ee_pap_1) != "65LR":
-                    errors.append(f"Cột O (EE_Pap 1): STD ARRAY TEE cần '65LR', có '{safe_str(ee_pap_1)}'")
-            
-            # Fabrication case: ống 65 RG BE (không phải PAP RANGE) - cần tối thiểu EE_Run Dim 1 và EE_Pap 1
+                    errors.append(f"STD ARRAY TEE cần EE_Pap 1 = '65LR', có '{safe_str(ee_pap_1)}'")
+              # Fabrication case: ống 65 RG BE (không phải PAP RANGE) - cần tối thiểu EE_Run Dim 1 và EE_Pap 1
             elif (size_str == "65" and end_1_str == "RG" and end_2_str == "BE" and 
                   "4730" not in item_desc_str and "5295" not in item_desc_str):
                 if pd.isna(ee_run_dim_1) or safe_str(ee_run_dim_1) == "":
@@ -380,19 +371,19 @@ class ExcelValidator:
             
             # Check for "Thiếu" or "Sai" values in any EE_Run Dim or EE_Pap columns
             all_ee_values = [
-                (ee_run_dim_1, "EE_Run Dim 1", "N"),
-                (ee_pap_1, "EE_Pap 1", "O"),
-                (ee_run_dim_2, "EE_Run Dim 2", "P"),
-                (ee_pap_2, "EE_Pap 2", "Q"),
-                (ee_run_dim_3, "EE_Run Dim 3", "R"),
-                (ee_pap_3, "EE_Pap 3", "S")
+                (ee_run_dim_1, "EE_Run Dim 1"),
+                (ee_pap_1, "EE_Pap 1"),
+                (ee_run_dim_2, "EE_Run Dim 2"),
+                (ee_pap_2, "EE_Pap 2"),
+                (ee_run_dim_3, "EE_Run Dim 3"),
+                (ee_pap_3, "EE_Pap 3")
             ]
             
-            for value, col_name, col_letter in all_ee_values:
+            for value, col_name in all_ee_values:
                 if not pd.isna(value):
                     value_str = safe_str(value).upper()
                     if value_str in ["THIẾU", "SAI"]:
-                        errors.append(f"Cột {col_letter} ({col_name}): có giá trị '{value_str}' - cần kiểm tra và sửa")
+                        errors.append(f"{col_name} có giá trị '{value_str}' - cần kiểm tra và sửa")
             
             if errors:
                 return "; ".join(errors)
@@ -424,84 +415,17 @@ class ExcelValidator:
             
             # Một trong hai trống thì FAIL
             if item_desc_str == "" or family_str == "":
-                return f"Cột F (Item Description) '{item_desc_str}' và Cột U (Family) '{family_str}' phải cùng có giá trị hoặc cùng trống"
+                return f"Item Description '{item_desc_str}' và Family '{family_str}' phải cùng có giá trị hoặc cùng trống"
             
             # So sánh giá trị
             if item_desc_str == family_str:
                 return "PASS"
             else:
-                return f"Cột F (Item Description) phải trùng Cột U (Family): cần '{family_str}', có '{item_desc_str}'"
+                return f"Item Description phải trùng Family: cần '{family_str}', có '{item_desc_str}'"
                 
         except Exception as e:
             return f"ERROR: {str(e)}"
-    
-    def _check_fab_pipe_based_ee_validation(self, row, col_k, col_n, col_o, col_p, col_q, col_r, col_s):
-        """Validation dựa vào cột K (FAB Pipe) để kiểm tra các cột N, O, P, Q, R, S theo yêu cầu user"""
-        try:
-            # Get FAB Pipe value (cột K)
-            fab_pipe = row[col_k] if col_k else None
-            
-            if pd.isna(fab_pipe):
-                return "SKIP: Thiếu FAB Pipe (cột K)"
-            
-            def safe_str(val):
-                return str(val).strip() if not pd.isna(val) else ""
-            
-            fab_pipe_str = safe_str(fab_pipe)
-            
-            # Get all EE_Run Dim and EE_Pap values
-            ee_run_dim_1 = row[col_n] if col_n else None
-            ee_pap_1 = row[col_o] if col_o else None
-            ee_run_dim_2 = row[col_p] if col_p else None
-            ee_pap_2 = row[col_q] if col_q else None
-            ee_run_dim_3 = row[col_r] if col_r else None
-            ee_pap_3 = row[col_s] if col_s else None
-            
-            errors = []
-            
-            # VALIDATION DỰA VÀO CỘT K (FAB PIPE) THEO YÊU CẦU USER
-            
-            # STD 1 PAP RANGE: check cột N phải có "4685" và cột O phải có "40B"
-            if fab_pipe_str == "STD 1 PAP RANGE":
-                if pd.isna(ee_run_dim_1) or safe_str(ee_run_dim_1) not in ["4685", "4685.0"]:
-                    errors.append(f"Cột N (EE_Run Dim 1): FAB Pipe 'STD 1 PAP RANGE' cần '4685', có '{safe_str(ee_run_dim_1)}'")
-                if pd.isna(ee_pap_1) or safe_str(ee_pap_1) != "40B":
-                    errors.append(f"Cột O (EE_Pap 1): FAB Pipe 'STD 1 PAP RANGE' cần '40B', có '{safe_str(ee_pap_1)}'")
-            
-            # STD 2 PAP RANGE: check cột N="150", O="40B", P="5250", Q="40B"
-            elif fab_pipe_str == "STD 2 PAP RANGE":
-                if pd.isna(ee_run_dim_1) or safe_str(ee_run_dim_1) not in ["150", "150.0"]:
-                    errors.append(f"Cột N (EE_Run Dim 1): FAB Pipe 'STD 2 PAP RANGE' cần '150', có '{safe_str(ee_run_dim_1)}'")
-                if pd.isna(ee_pap_1) or safe_str(ee_pap_1) != "40B":
-                    errors.append(f"Cột O (EE_Pap 1): FAB Pipe 'STD 2 PAP RANGE' cần '40B', có '{safe_str(ee_pap_1)}'")
-                if pd.isna(ee_run_dim_2) or safe_str(ee_run_dim_2) not in ["5250", "5250.0"]:
-                    errors.append(f"Cột P (EE_Run Dim 2): FAB Pipe 'STD 2 PAP RANGE' cần '5250', có '{safe_str(ee_run_dim_2)}'")
-                if pd.isna(ee_pap_2) or safe_str(ee_pap_2) != "40B":
-                    errors.append(f"Cột Q (EE_Pap 2): FAB Pipe 'STD 2 PAP RANGE' cần '40B', có '{safe_str(ee_pap_2)}'")
-            
-            # STD ARRAY TEE: check cột N="150" và cột O="65LR"
-            elif fab_pipe_str == "STD ARRAY TEE":
-                if pd.isna(ee_run_dim_1) or safe_str(ee_run_dim_1) not in ["150", "150.0"]:
-                    errors.append(f"Cột N (EE_Run Dim 1): FAB Pipe 'STD ARRAY TEE' cần '150', có '{safe_str(ee_run_dim_1)}'")
-                if pd.isna(ee_pap_1) or safe_str(ee_pap_1) != "65LR":
-                    errors.append(f"Cột O (EE_Pap 1): FAB Pipe 'STD ARRAY TEE' cần '65LR', có '{safe_str(ee_pap_1)}'")
-            
-            # Fabrication: check cột N và O phải có giá trị (không được trống)
-            elif fab_pipe_str == "Fabrication":
-                if pd.isna(ee_run_dim_1) or safe_str(ee_run_dim_1) == "":
-                    errors.append(f"Cột N (EE_Run Dim 1): FAB Pipe 'Fabrication' cần có giá trị, nhưng bị trống")
-                if pd.isna(ee_pap_1) or safe_str(ee_pap_1) == "":
-                    errors.append(f"Cột O (EE_Pap 1): FAB Pipe 'Fabrication' cần có giá trị, nhưng bị trống")
-            
-            if errors:
-                return "; ".join(errors)
-            else:
-                return "PASS"
-                
-        except Exception as e:
-            return f"ERROR: {str(e)}"
-    
-    def _validate_mapping_rule(self, fab_pipe, fab_pipe_str, end_1_str, end_2_str, expected, rule_name):
+      def _validate_mapping_rule(self, fab_pipe, fab_pipe_str, end_1_str, end_2_str, expected, rule_name):
         """Validate một rule mapping cụ thể với báo cáo chi tiết cột"""
         errors = []
         expected_fab_pipe, expected_end_1, expected_end_2 = expected
@@ -521,8 +445,7 @@ class ExcelValidator:
         for end_str, expected_end, col_letter, end_name in end_mappings:
             if end_str not in ["", "N/A", "nan"] and end_str != expected_end:
                 errors.append(f"Cột {col_letter} ({end_name}): {rule_name.split('(')[0].strip()} cần '{expected_end}', có '{end_str}'")
-        
-        return f"{'; '.join(errors)}" if errors else "PASS"
+          return f"{'; '.join(errors)}" if errors else "PASS"
     
     def _validate_fab_pipe_only(self, fab_pipe, fab_pipe_str, expected_fab_pipe):
         """Validate chỉ FAB Pipe với báo cáo chi tiết về cột"""
@@ -534,16 +457,16 @@ class ExcelValidator:
             return "PASS"
 
     def _show_sample_errors(self, df, cols):
-        """Hiển thị lỗi với màu sắc và thông tin chi tiết cột"""
+        """Hiển thị lỗi với màu sắc"""
         fail_rows = df[df['Validation_Check'] != 'PASS']
         if fail_rows.empty:
             return
             
         print(f"📋 {len(fail_rows)} LỖI (ĐỎ=SAI, TRẮNG=ĐÚNG):")
         for idx, row in fail_rows.iterrows():
-            # Hiển thị thông tin dòng với nhiều cột hơn
-            info_cols = ['C', 'D', 'F', 'G', 'K', 'L', 'M', 'N', 'O', 'T']
-            col_info = " | ".join([f"{c}={str(row[cols[c]])[:15] if cols[c] and not pd.isna(row[cols[c]]) else 'N/A'}" for c in info_cols])
+            # Hiển thị thông tin dòng
+            info_cols = ['C', 'D', 'F', 'G', 'K', 'T']
+            col_info = " | ".join([f"{c}={row[cols[c]] if cols[c] else 'N/A'}" for c in info_cols])
             print(f"  Dòng {idx+2:3d}: {col_info}")
             
             # Hiển thị lỗi với màu sắc
@@ -581,7 +504,7 @@ class ExcelValidator:
         try:
             file_path = Path(excel_file_path)
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_file = file_path.parent / f"validation_6rules_enhanced_{file_path.stem}_{timestamp}.xlsx"
+            output_file = file_path.parent / f"validation_6rules_{file_path.stem}_{timestamp}.xlsx"
             
             with pd.ExcelWriter(output_file, engine='openpyxl') as writer:
                 for sheet_name, df in self.validation_results.items():
@@ -622,8 +545,8 @@ class ExcelValidator:
 def main():
     """Main function"""
     try:
-        print("🔍 EXCEL VALIDATION TOOL - ENHANCED VERSION WITH 6 RULES & DETAILED ERROR REPORTING")
-        print("=" * 80)
+        print("🔍 EXCEL VALIDATION TOOL - ENHANCED VERSION WITH 6 RULES")
+        print("=" * 60)
         
         # Tìm file Excel trong thư mục hiện tại
         current_dir = Path('.')
